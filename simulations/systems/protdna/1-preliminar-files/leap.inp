@@ -1,0 +1,4 @@
+source leaprc.protein.ff19SB
+source leaprc.DNA.OL21
+x = loadPdb 3lel-reduced.pdb
+saveAmberParm x prmtop prmcrd

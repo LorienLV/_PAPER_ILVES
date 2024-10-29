@@ -1,0 +1,220 @@
+;
+;   File gromacs.top  was generated
+;   By user: juanjo (1010)
+;   On host:atena.ccr.rm.cnr.it 
+;   At date:Mon. June  1 14:29:51 2024 
+;
+;   This is a standalone topology file
+;
+;   Created by:
+;   ParmEd:       amber.python, VERSION4.2.2 
+;   Executable:   amber.python
+;   Library dir:  /usr/local/gromacs/share/gromacs/top
+;   Command line:
+;     amber.python
+;
+
+; Include atomtypes
+#include "atomtypes.itp"
+
+; Include protein
+#include "system1.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P1
+#include "system1_posre.itp"
+#endif
+
+; Include protein
+#include "system2.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P2
+#include "system2_posre.itp"
+#endif
+
+; Include protein
+#include "system3.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P3
+#include "system3_posre.itp"
+#endif
+
+; Include protein
+#include "system4.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P4
+#include "system4_posre.itp"
+#endif
+
+; Include protein
+#include "system5.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P5
+#include "system5_posre.itp"
+#endif
+
+; Include protein
+#include "system6.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P6
+#include "system6_posre.itp"
+#endif
+
+; Include protein
+#include "system7.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P7
+#include "system7_posre.itp"
+#endif
+
+; Include protein
+#include "system8.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P8
+#include "system8_posre.itp"
+#endif
+
+; Include protein
+#include "system11.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P11
+#include "system11_posre.itp"
+#endif
+
+; Include protein
+#include "system12.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P12
+#include "system12_posre.itp"
+#endif
+
+; Include protein
+#include "system13.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P13
+#include "system13_posre.itp"
+#endif
+
+; Include protein
+#include "system14.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P14
+#include "system14_posre.itp"
+#endif
+
+; Include protein
+#include "system5a.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P5a
+#include "system5a_posre.itp"
+#endif
+
+; Include protein
+#include "system15.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P15
+#include "system15_posre.itp"
+#endif
+
+; Include protein
+#include "system7a.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P7a
+#include "system7a_posre.itp"
+#endif
+
+; Include protein
+#include "system16.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_P16
+#include "posre_p16.itp"
+#endif
+
+; Include DNA
+#include "dna1.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_D1
+#include "dna1_posre.itp"
+#endif
+
+; Include DNA
+#include "dna2.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_D2
+#include "dna2_posre.itp"
+#endif
+
+; Include DNA
+#include "dna1a.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_D1a
+#include "dna1a_posre.itp"
+#endif
+
+; Include DNA
+#include "dna2a.itp"
+
+; Include Protein Position restraint file
+#ifdef POSRES_D2a
+#include "dna2a_posre.itp"
+#endif
+
+
+; Include water topology
+#include "opc4.itp"
+
+#ifdef POSRES_WATER
+; Position restraint for each water oxygen
+[ position_restraints ]
+;  i funct       fcx        fcy        fcz
+   1    1       1000       1000       1000
+#endif
+
+; Include topology for ions
+#include "amber99sb-ildn.ff/ions.itp"
+
+
+[ system ]
+; Name
+Complex
+
+[ molecules ]
+; Compound       #mols
+system1              1
+system2              1
+system3              1
+system4              1
+system5              1
+system6              1
+system7              1
+system8              1
+system11             1
+system12             1
+system13             1
+system14             1
+system5              1
+system15             1
+system7              1
+system16             1
+dna1                 1
+dna2                 1
+dna1                 1
+dna2                 1

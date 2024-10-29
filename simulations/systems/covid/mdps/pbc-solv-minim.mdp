@@ -1,0 +1,65 @@
+title		= Energy Minimization	; Title of run
+
+; The following line tell the program the standard locations where to find certain files
+cpp		= /lib/cpp	; Preprocessor
+
+; Define can be used to control processes
+define          = 
+
+; Parameters describing what to do, when to stop and what to save
+integrator	= steep		; Algorithm (steep = steepest descent minimization)
+emtol		= 1.0		; Stop minimization when the maximum force < 1.0 kJ/mol
+nsteps		= 20000		; Maximum number of (minimization) steps to perform
+energygrps	= System	; Which energy group(s) to write to disk
+comm-mode       = Linear        ; mode for center of mass motion removal 
+nstcomm         = 1             ; number of steps for center of mass motion removal
+comm-grps       =               ; group(s) for center of mass motion removal 
+
+
+; LANGEVIN DYNAMICS OPTIONS
+bd-fric         = 0             ; friction coefficient (amu/ps)
+ld-seed         = -1            ; Random seed
+
+; ENERGY MINIMIZATION OPTIONS = 
+ 
+emstep                   = 0.001
+niter                    = 20 ; Max number of iterations in relax_shells
+fcstep                   = 0  ; Step size (1/ps^2) for minimization of flexible constraints
+nstcgsteep               = 1000 ; Frequency of steepest descents steps when doing CG
+
+; OUTPUT CONTROL OPTIONS = 
+nstxout                  = 1000 ; Output frequency for coords (x)
+
+nstvout                  = 0 ; Output frequency for velocities (v)
+nstfout                  = 0 ; Output frequency for forces (f) 
+nstlog                   = 100 ; Output frequency for energies to log file 
+nstenergy                = 1000 ; Output frequency for energies to energy file  
+nstxtcout                = 0 ; Output frequency for xtc file
+xtc-precision            = 1000 ; Output precision for xtc file  
+
+; NEIGHBORSEARCHING PARAMETERS = 
+nstlist                  = 10 ; nblist update frequency
+ns_type                  = grid ; ns algorithm (simple or grid) 
+pbc                      = xyz ; Periodic boundary conditions: xyz or no 
+rlist                    = 1.0 ; nblist cut-off 
+
+; OPTIONS FOR ELECTROSTATICS AND VDW = 
+coulombtype              = PME ; Method for doing electrostatics
+rcoulomb                 = 1.0
+vdwtype                  = cut-off ; Method for doing Van der Waals 
+rvdw                     = 1.0
+fourierspacing           = 0.12 ; Spacing for the PME/PPPM FFT grid
+
+; EWALD/PME/PPPM parameters = 
+pme_order                = 4
+ewald_rtol               = 1e-05
+ewald_geometry           = 3d
+epsilon_surface          = 0
+optimize_fft             = no
+
+; OPTIONS FOR BONDS      = 
+lincs_order              = 4
+constraints              = none
+
+; APPLY DISPERSION CORRECTION
+dispcorr                = enerpres

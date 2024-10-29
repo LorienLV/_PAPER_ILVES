@@ -1,0 +1,5 @@
+import parmed as pmd
+
+parm = pmd.load_file('3lel.prmtop', '3lel.prmcrd')
+parm.save('gromacs.top', format='gromacs')
+parm.save('gromacs.gro')

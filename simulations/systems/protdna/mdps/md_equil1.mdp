@@ -1,0 +1,57 @@
+;
+;	juanjo (2016)
+;
+define              = -DPOSRES_P1 -DPOSRES_P2 -DPOSRES_P3 -DPOSRES_P4 -DPOSRES_P5 -DPOSRES_P6 -DPOSRES_P7 -DPOSRES_P8 -DPOSRES_P11 -DPOSRES_P12 -DPOSRES_P13 -DPOSRES_P14 -DPOSRES_P5a -DPOSRES_P15 -DPOSRES_P7a -DPOSRES_P16 -DPOSRES_D1 -DPOSRES_D2 -DPOSRES_D1a -DPOSRES_D2a
+
+integrator          = md
+dt                  = 0.001	; ps !
+nsteps              = 100000	; 100 ps
+nstcomm             = 1
+nstxtcout           = 10000
+xtc-precision       = 10000
+nstxout             = 0
+nstvout             = 0
+nstfout             = 0
+nstlog              = 10000
+nstenergy           = 10000
+
+; Non-bonded Interactions
+nstlist             = 10
+ns_type             = grid
+rlist               = 1.0
+coulombtype         = PME
+rcoulomb            = 1.0
+vdwtype             = cut-off
+rvdw                = 1.0
+vdw-modifier        = Potential-shift-Verlet
+
+; Berendsen temperature coupling is on in two groups
+Tcoupl              =  v-rescale
+tc-grps		    =  System
+tau_t               =  0.1
+ref_t               =  xxx 
+ld-seed             =  -1
+
+; Energy monitoring
+energygrps          =  System 
+DispCorr            =  EnerPres
+
+; Isotropic pressure coupling is now off
+Pcoupl              =  no
+Pcoupltype          =  isotropic
+tau_p               =  5.0
+compressibility     =  4.6e-5
+ref_p               =  1.0
+
+; Generate velocites is off 
+gen_vel             =  no
+gen_temp            =  xxx
+gen_seed            =  -1 
+
+; Constraints
+constraint_algorithm = lincs
+;lincs_order	     = 8
+constraints          = all-bonds
+lincs-warnangle	     = 60
+lincs-tol            =  0.0001  ;Relative tolerance for LINCS.
+lincs-iter           =  100     ; Maximum number of iterations allowed for LINCS. # En P-LINCS original, es el número de iteraciones a ejecutar.

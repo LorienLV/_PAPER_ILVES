@@ -1,0 +1,23 @@
+Note that major changes are planned in future for editconf, to improve usability and utility.Read 43969 atoms
+No velocities found
+    system size : 11.994 10.876 11.962 (nm)
+    diameter    : 15.167               (nm)
+    center      : -3.890  0.297  4.916 (nm)
+    box vectors :  0.000  0.000  0.000 (nm)
+    box angles  :   0.00   0.00   0.00 (degrees)
+    box volume  :   0.00               (nm^3)
+
+WARNING: Masses and atomic (Van der Waals) radii will be guessed
+         based on residue and atom names, since they could not be
+         definitively assigned from the information in your input
+         files. These guessed numbers might deviate from the mass
+         and radius of the atom type. Please check the output
+         files if necessary.
+
+Selected 1: 'Protein'
+new system size : 13.297 11.958 11.849
+    shift       : 16.029 11.832  0.792 (nm)
+new center      : 12.125 12.125  5.716 (nm)
+new box vectors : 16.167 16.167 16.167 (nm)
+new box angles  :  60.00  60.00  90.00 (degrees)
+new box volume  :2987.70               (nm^3)

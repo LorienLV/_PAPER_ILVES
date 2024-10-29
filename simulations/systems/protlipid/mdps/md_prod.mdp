@@ -1,0 +1,49 @@
+integrator          = md
+dt                  = 0.002	; ps !
+nsteps              = 50000
+nstxout             = 0
+nstvout             = 0
+nstfout             = 0
+nstlog              = 0
+nstenergy           = 0
+nstxout-compressed  = 0
+;
+cutoff-scheme           = Verlet
+nstlist                 = 20
+rlist                   = 0.9
+vdwtype                 = cut-off
+vdw-modifier            = None
+DispCorr                = EnerPres
+rvdw                    = 0.9
+coulombtype             = PME
+rcoulomb                = 0.9
+;
+tcoupl                  = Nose-Hoover
+tc_grps                 = SOLU MEMB SOLV
+tau_t                   = 1.0 1.0 1.0
+ref_t                   = 310 310 310
+;
+pcoupl                  = Parrinello-Rahman
+pcoupltype              = semiisotropic
+tau_p                   = 5.0
+compressibility         = 4.5e-5  4.5e-5
+ref_p                   = 1.0     1.0
+;
+
+nstcomm                 = 100
+comm_mode               = linear
+comm_grps               = SOLU_MEMB SOLV
+
+; Generate velocites is off
+gen_vel             =  no
+gen_temp            =  310
+
+
+; Constraints
+constraint_algorithm = shake
+shake-tol   = 0.0001
+constraints = all-bonds
+
+; Reduce randomness
+gen-seed                = 2023
+ld-seed                 = 2023
