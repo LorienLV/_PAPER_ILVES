@@ -361,6 +361,8 @@ enum
 {
     econtLINCS,
     econtSHAKE,
+    econtILVES,
+    econtILVESF,
     econtNR
 };
 //! String corresponding to constraint algorithm

@@ -95,10 +95,11 @@ struct shakedata
 };
 
 //! Make SHAKE blocks when not using DD.
-void make_shake_sblock_serial(shakedata* shaked, InteractionDefinitions* idef, int numAtoms);
+void make_shake_sblock_serial(shakedata* shaked, InteractionDefinitions* idef, int numAtoms,
+                              const bool verbose);
 
 //! Make SHAKE blocks when using DD.
-void make_shake_sblock_dd(shakedata* shaked, const InteractionList& ilcon);
+void make_shake_sblock_dd(shakedata* shaked, const InteractionList& ilcon, const bool verbose);
 
 /*! \brief Shake all the atoms blockwise. It is assumed that all the constraints
  * in the idef->shakes field are sorted, to ascending block nr. The
@@ -108,24 +109,24 @@ void make_shake_sblock_dd(shakedata* shaked, const InteractionList& ilcon);
  * sblock[n] to sblock[n+1]. Array sblock should be large enough.
  * Return TRUE when OK, FALSE when shake-error
  */
-bool constrain_shake(FILE*                         log,       /* Log file			*/
-                     shakedata*                    shaked,    /* Total number of atoms	*/
-                     const real                    invmass[], /* Atomic masses		*/
-                     const InteractionDefinitions& idef,      /* The interaction def		*/
-                     const t_inputrec&             ir,        /* Input record		        */
-                     ArrayRef<const RVec>          x_s,       /* Coords before update		*/
-                     ArrayRef<RVec>                xprime, /* Output coords when constraining x */
-                     ArrayRef<RVec>                vprime, /* Output coords when constraining v */
-                     const t_pbc*                  pbc,    /* PBC information              */
-                     t_nrnb*                       nrnb,   /* Performance measure          */
-                     real                          lambda, /* FEP lambda                   */
-                     real*                         dvdlambda,  /* FEP force                    */
-                     real                          invdt,      /* 1/delta_t                    */
-                     ArrayRef<RVec>                v,          /* Also constrain v if not empty  */
-                     bool                          bCalcVir,   /* Calculate r x m delta_r      */
-                     tensor                        vir_r_m_dr, /* sum r x m delta_r            */
-                     bool                          bDumpOnError, /* Dump debugging stuff on error*/
-                     ConstraintVariable econq); /* which type of constraint is occurring */
+std::pair<bool, int> constrain_shake(FILE*                         log,       /* Log file			*/
+                                     shakedata*                    shaked,    /* Total number of atoms	*/
+                                     const real                    invmass[], /* Atomic masses		*/
+                                     const InteractionDefinitions& idef,      /* The interaction def		*/
+                                     const t_inputrec&             ir,        /* Input record		        */
+                                     ArrayRef<const RVec>          x_s,       /* Coords before update		*/
+                                     ArrayRef<RVec>                xprime, /* Output coords when constraining x */
+                                     ArrayRef<RVec>                vprime, /* Output coords when constraining v */
+                                     const t_pbc*                  pbc,    /* PBC information              */
+                                     t_nrnb*                       nrnb,   /* Performance measure          */
+                                     real                          lambda, /* FEP lambda                   */
+                                     real*                         dvdlambda,  /* FEP force                    */
+                                     real                          invdt,      /* 1/delta_t                    */
+                                     ArrayRef<RVec>                v,          /* Also constrain v if not empty  */
+                                     bool                          bCalcVir,   /* Calculate r x m delta_r      */
+                                     tensor                        vir_r_m_dr, /* sum r x m delta_r            */
+                                     bool                          bDumpOnError, /* Dump debugging stuff on error*/
+                                     ConstraintVariable econq); /* which type of constraint is occurring */
 
 /*! \brief Regular iterative shake */
 void cshake(const int            iatom[],

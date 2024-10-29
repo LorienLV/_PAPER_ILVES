@@ -948,7 +948,10 @@ void pr_inputrec(FILE* fp, int indent, const char* title, const t_inputrec* ir, 
 
         PS("Shake-SOR", EBOOL(ir->bShakeSOR));
         PR("shake-tol", ir->shake_tol);
+        PR("lincs-tol", ir->lincs_tol);
+        PR("ilves-tol", ir->ilves_tol);
         PI("lincs-order", ir->nProjOrder);
+        PI("ilves-mpi-neigh", ir->nProjOrder);
         PI("lincs-iter", ir->nLincsIter);
         PR("lincs-warnangle", ir->LincsWarnAngle);
 

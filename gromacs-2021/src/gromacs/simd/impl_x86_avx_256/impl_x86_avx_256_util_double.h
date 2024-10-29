@@ -336,6 +336,23 @@ static inline void gmx_simdcall gatherLoadBySimdIntTranspose(const double* base,
 
 template<int align>
 static inline void gmx_simdcall
+                   gatherLoadUBySimdIntTranspose(const double* base, SimdDInt32 offset, SimdDouble* v0)
+{
+    assert(align == 1);
+
+    alignas(GMX_SIMD_ALIGNMENT) std::int32_t ioffset[GMX_SIMD_DINT32_WIDTH];
+    _mm_store_si128(reinterpret_cast<__m128i*>(ioffset), offset.simdInternal_);
+
+    double t1 = base[ioffset[0]];
+    double t2 = base[ioffset[1]];
+    double t3 = base[ioffset[2]];
+    double t4 = base[ioffset[3]];
+
+    v0->simdInternal_ = _mm256_set_pd(t4, t3, t2, t1);
+}
+
+template<int align>
+static inline void gmx_simdcall
                    gatherLoadBySimdIntTranspose(const double* base, SimdDInt32 offset, SimdDouble* v0, SimdDouble* v1)
 {
     __m128d t1, t2, t3, t4;
@@ -378,6 +395,40 @@ static inline void gmx_simdcall
 
     v0->simdInternal_ = _mm256_unpacklo_pd(tA, tB);
     v1->simdInternal_ = _mm256_unpackhi_pd(tA, tB);
+}
+
+template<int align>
+static inline void gmx_simdcall gatherLoadUBySimdIntTranspose(const double* base, 
+                                                              SimdDInt32 offset,
+                                                              SimdDouble* v0,
+                                                              SimdDouble* v1,
+                                                              SimdDouble* v2)
+{
+    alignas(GMX_SIMD_ALIGNMENT) std::int32_t ioffset[GMX_SIMD_DINT32_WIDTH];
+    _mm_store_si128(reinterpret_cast<__m128i*>(ioffset), offset.simdInternal_);
+
+    __m256d t1, t2, t3, t4, t5, t6, t7, t8;
+    if (align % 4 == 0)
+    {
+        t1 = _mm256_load_pd(base + align * ioffset[0]);
+        t2 = _mm256_load_pd(base + align * ioffset[1]);
+        t3 = _mm256_load_pd(base + align * ioffset[2]);
+        t4 = _mm256_load_pd(base + align * ioffset[3]);
+    }
+    else
+    {
+        t1 = _mm256_loadu_pd(base + align * ioffset[0]);
+        t2 = _mm256_loadu_pd(base + align * ioffset[1]);
+        t3 = _mm256_loadu_pd(base + align * ioffset[2]);
+        t4 = _mm256_loadu_pd(base + align * ioffset[3]);
+    }
+    t5                = _mm256_unpacklo_pd(t1, t2);
+    t6                = _mm256_unpackhi_pd(t1, t2);
+    t7                = _mm256_unpacklo_pd(t3, t4);
+    t8                = _mm256_unpackhi_pd(t3, t4);
+    v0->simdInternal_ = _mm256_permute2f128_pd(t5, t7, 0x20);
+    v1->simdInternal_ = _mm256_permute2f128_pd(t6, t8, 0x20);
+    v2->simdInternal_ = _mm256_permute2f128_pd(t5, t7, 0x31);
 }
 
 static inline double gmx_simdcall

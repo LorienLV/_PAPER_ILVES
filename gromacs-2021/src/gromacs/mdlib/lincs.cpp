@@ -211,6 +211,8 @@ public:
     std::vector<real, AlignedAllocator<real>> mlambda;
     //! Storage for the constraint RMS relative deviation output.
     std::array<real, 2> rmsdData = { { 0 } };
+    // Range of atoms received from other MPI ranks.
+    // std::pair<int, int> non_local_atoms_range;
 };
 
 /*! \brief Define simd_width for memory allocation used for SIMD code */
@@ -946,6 +948,40 @@ static void gmx_simdcall calc_dist_iter_simd(int                           b0,
 }
 #endif // GMX_SIMD_HAVE_REAL
 
+static void maxRelativeError(const Lincs& lincsd, const rvec *const x, const t_pbc* pbc, real &rel) {
+    const ArrayRef<const AtomPair> atoms  = lincsd.atoms;
+    const ArrayRef<const real>     bllen  = lincsd.bllen;
+    const ArrayRef<const int>      nlocat = lincsd.nlocat;
+
+    #pragma omp for reduction(max:rel)
+    for (int task = 0; task < lincsd.ntask; task++)
+    {
+        for (int b = lincsd.task[task].b0; b < lincsd.task[task].b1; b++)
+        {
+            rvec dx;
+            if (pbc)
+            {
+                pbc_dx_aiuc(pbc, x[atoms[b].index1], x[atoms[b].index2], dx);
+            }
+            else
+            {
+                rvec_sub(x[atoms[b].index1], x[atoms[b].index2], dx);
+            }
+            real r2  = ::norm2(dx);
+            real bllen2 = bllen[b] * bllen[b];
+
+            real scalar = 0.5 * (r2 - bllen2);
+            rel = std::max(rel, std::abs(scalar) / bllen2);
+
+            // Only consider local atoms.
+            // if (atoms[b].index1 < lincsd.non_local_atoms_range.first &&
+            //     atoms[b].index2 < lincsd.non_local_atoms_range.first) {
+            //     rel = std::max(rel, std::abs(scalar) / bllen2);
+            // }
+        }
+    }
+}
+
 //! Implements LINCS constraining.
 static void do_lincs(ArrayRefWithPadding<const RVec> xPadded,
                      ArrayRefWithPadding<RVec>       xpPadded,
@@ -954,6 +990,7 @@ static void do_lincs(ArrayRefWithPadding<const RVec> xPadded,
                      Lincs*                          lincsd,
                      int                             th,
                      const real*                     invmass,
+                     real                            tol,
                      const t_commrec*                cr,
                      bool                            bCalcDHDL,
                      real                            wangle,
@@ -961,7 +998,9 @@ static void do_lincs(ArrayRefWithPadding<const RVec> xPadded,
                      real                            invdt,
                      ArrayRef<RVec>                  vRef,
                      bool                            bCalcVir,
-                     tensor                          vir_r_m_dr)
+                     tensor                          vir_r_m_dr,
+                     real&                           rerror,
+                     int&                            niters)
 {
     const rvec* x        = as_rvec_array(xPadded.paddedArrayRef().data());
     rvec*       xp       = as_rvec_array(xpPadded.paddedArrayRef().data());
@@ -1094,7 +1133,24 @@ static void do_lincs(ArrayRefWithPadding<const RVec> xPadded,
     wfac = std::cos(DEG2RAD * wangle);
     wfac = wfac * wfac;
 
-    for (int iter = 0; iter < lincsd->nIter; iter++)
+    #pragma omp single
+    {
+        rerror = 0; // Reset relative error.
+    } // Barrier
+
+    maxRelativeError(*lincsd, xp, pbc, rerror); // Barrier inside the function.
+
+#ifdef GMX_MPI
+    if (DOMAINDECOMP(cr) && cr->dd->constraints) {
+        #pragma omp master
+        {
+            MPI_Allreduce(MPI_IN_PLACE, &rerror, 1, GMX_MPI_REAL, MPI_MAX, cr->dd->mpi_comm_all);
+        }
+        #pragma omp barrier
+    }
+#endif
+
+    for (int iter = 0; iter < lincsd->nIter && tol < rerror; iter++)
     {
         if ((lincsd->bCommIter && DOMAINDECOMP(cr) && cr->dd->constraints))
         {
@@ -1109,8 +1165,9 @@ static void do_lincs(ArrayRefWithPadding<const RVec> xPadded,
             }
 #pragma omp barrier
         }
-        else if (lincsd->bTaskDep)
+        else
         {
+        // Do not overwrite the relative error before all threads have entered the loop.
 #pragma omp barrier
         }
 
@@ -1146,6 +1203,24 @@ static void do_lincs(ArrayRefWithPadding<const RVec> xPadded,
 
         /* Update the coordinates */
         lincs_update_atoms(lincsd, th, 1.0, blc_sol, r, invmass, xp);
+
+        #pragma omp single
+        {
+            rerror = 0;
+            ++niters;
+        } // Barrier
+
+        maxRelativeError(*lincsd, xp, pbc, rerror); // Barrier inside the function.
+
+#ifdef GMX_MPI
+        if (DOMAINDECOMP(cr) && cr->dd->constraints) {
+            #pragma omp master
+            {
+                MPI_Allreduce(MPI_IN_PLACE, &rerror, 1, GMX_MPI_REAL, MPI_MAX, cr->dd->mpi_comm_all);
+            }
+            #pragma omp barrier
+        }
+#endif
     }
     /* nit*ncons*(37+9*nrec) flops */
 
@@ -1896,15 +1971,19 @@ void set_lincs(const InteractionDefinitions& idef,
             int start;
 
             dd_get_constraint_range(cr->dd, &start, &natoms);
+
+            // li->non_local_atoms_range = std::make_pair(start, natoms);
         }
         else
         {
             natoms = dd_numHomeAtoms(*cr->dd);
+            // li->non_local_atoms_range = std::make_pair(natoms, natoms);
         }
     }
     else
     {
         natoms = numAtoms;
+        // li->non_local_atoms_range = std::make_pair(natoms, natoms);
     }
 
     const ListOfLists<int> at2con =
@@ -2256,31 +2335,33 @@ static LincsDeviations makeLincsDeviations(const Lincs& lincsd, ArrayRef<const R
     return result;
 }
 
-bool constrain_lincs(bool                            computeRmsd,
-                     const t_inputrec&               ir,
-                     int64_t                         step,
-                     Lincs*                          lincsd,
-                     const real*                     invmass,
-                     const t_commrec*                cr,
-                     const gmx_multisim_t*           ms,
-                     ArrayRefWithPadding<const RVec> xPadded,
-                     ArrayRefWithPadding<RVec>       xprimePadded,
-                     ArrayRef<RVec>                  min_proj,
-                     const matrix                    box,
-                     t_pbc*                          pbc,
-                     const bool                      hasMassPerturbed,
-                     real                            lambda,
-                     real*                           dvdlambda,
-                     real                            invdt,
-                     ArrayRef<RVec>                  v,
-                     bool                            bCalcVir,
-                     tensor                          vir_r_m_dr,
-                     ConstraintVariable              econq,
-                     t_nrnb*                         nrnb,
-                     int                             maxwarn,
-                     int*                            warncount)
+std::pair<bool, int> constrain_lincs(bool                            computeRmsd,
+                                     const t_inputrec&               ir,
+                                     int64_t                         step,
+                                     Lincs*                          lincsd,
+                                     const real*                     invmass,
+                                     real                            tol,
+                                     const t_commrec*                cr,
+                                     const gmx_multisim_t*           ms,
+                                     ArrayRefWithPadding<const RVec> xPadded,
+                                     ArrayRefWithPadding<RVec>       xprimePadded,
+                                     ArrayRef<RVec>                  min_proj,
+                                     const matrix                    box,
+                                     t_pbc*                          pbc,
+                                     const bool                      hasMassPerturbed,
+                                     real                            lambda,
+                                     real*                           dvdlambda,
+                                     real                            invdt,
+                                     ArrayRef<RVec>                  v,
+                                     bool                            bCalcVir,
+                                     tensor                          vir_r_m_dr,
+                                     ConstraintVariable              econq,
+                                     t_nrnb*                         nrnb,
+                                     int                             maxwarn,
+                                     int*                            warncount)
 {
     bool bOK = TRUE;
+    int niters = 0;
 
     /* This boolean should be set by a flag passed to this routine.
      * We can also easily check if any constraint length is changed,
@@ -2295,7 +2376,7 @@ bool constrain_lincs(bool                            computeRmsd,
             lincsd->rmsdData = { { 0 } };
         }
 
-        return bOK;
+        return {bOK, niters};
     }
 
     ArrayRef<const RVec> x      = xPadded.unpaddedArrayRef();
@@ -2365,6 +2446,8 @@ bool constrain_lincs(bool                            computeRmsd,
          */
         bool bWarn = FALSE;
 
+        real rerror;
+
         /* The OpenMP parallel region of constrain_lincs for coords */
 #pragma omp parallel num_threads(lincsd->ntask)
         {
@@ -2374,9 +2457,9 @@ bool constrain_lincs(bool                            computeRmsd,
 
                 clear_mat(lincsd->task[th].vir_r_m_dr);
 
-                do_lincs(xPadded, xprimePadded, box, pbc, lincsd, th, invmass, cr, bCalcDHDL,
+                do_lincs(xPadded, xprimePadded, box, pbc, lincsd, th, invmass, tol, cr, bCalcDHDL,
                          ir.LincsWarnAngle, &bWarn, invdt, v, bCalcVir,
-                         th == 0 ? vir_r_m_dr : lincsd->task[th].vir_r_m_dr);
+                         th == 0 ? vir_r_m_dr : lincsd->task[th].vir_r_m_dr, rerror, niters);
             }
             GMX_CATCH_ALL_AND_EXIT_WITH_FATAL_ERROR
         }
@@ -2504,7 +2587,7 @@ bool constrain_lincs(bool                            computeRmsd,
         inc_nrnb(nrnb, eNR_CONSTR_VIR, lincsd->nc_real);
     }
 
-    return bOK;
+    return {bOK, niters};
 }
 
 } // namespace gmx

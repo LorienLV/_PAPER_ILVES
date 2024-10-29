@@ -82,6 +82,21 @@
 #include "gromacs/utility/pleasecite.h"
 #include "gromacs/utility/txtdump.h"
 
+// ILVES
+#include <chrono>
+#include <iostream>
+#include <iomanip>
+
+#include "gromacs/simd/simd.h"
+
+#include "omp.h"
+
+#include "ilves.h"
+#include "ilves_asym.h"
+#include "ilves_sym.h"
+// END ILVES
+
+
 namespace gmx
 {
 
@@ -132,6 +147,15 @@ public:
                bool                      computeVirial,
                tensor                    constraintsVirial,
                ConstraintVariable        econq);
+
+    // ILVES
+    std::pair<real, real> compute_errors(const t_pbc *const pbc,
+                                            ArrayRef<RVec> xprime);
+    void print_constr_detailed_durations();
+    void mpi_start_printing();
+    void mpi_finish_printing();
+    // END ILVES
+
     //! The total number of constraints.
     int ncon_tot = 0;
     //! The number of flexible constraints.
@@ -197,6 +221,28 @@ public:
     t_nrnb* nrnb = nullptr;
     //! Tracks wallcycle usage.
     gmx_wallcycle* wcycle;
+
+    // ILVES
+
+    // 0 no
+    // 1 yes
+    // 2 ultra verbose
+    int CONSTRAINTS_VERBOSE;
+
+    // Number of steps that elapse between printing the constraints verbose
+    // output
+    int NSCONSTRAINTS_OUTPUT;
+
+    std::unique_ptr<Ilves> ilves;
+
+    int constr_total_calls;
+    int constr_total_iters;
+    std::chrono::duration<double> constr_duration;
+    std::chrono::duration<double> constr_init_duration;
+    std::vector<std::map<std::string, 
+                std::chrono::duration<double, std::milli>>> constr_detailed_durations;
+
+    // END ILVES
 };
 
 Constraints::~Constraints() = default;
@@ -222,6 +268,139 @@ bool Constraints::havePerturbedConstraints() const
     return false;
 }
 
+// ILVES
+std::pair<real, real> Constraints::Impl::compute_errors(const t_pbc *const pbc,
+                                            ArrayRef<RVec> xprime) {
+
+    // Initialize the largest relative error
+    real max_rel_error = 0;
+    real avg_rel_error = 0;
+
+    const auto &iatoms = idef->il[F_CONSTR].iatoms;
+
+    // Loop over the n constraints
+    size_t n = idef->il[F_CONSTR].size() / 3;
+    for (size_t row = 0; row < n; ++row) {
+        // Isolate the atoms which partake in bond row
+        const int type = iatoms[row * 3 + 0];
+        const int a = iatoms[row * 3 + 1];
+        const int b = iatoms[row * 3 + 2];
+
+        // Isolate the square of the length of the ith bond
+        real sigma2 = gmx::square(idef->iparams[type].constr.dA);
+
+        // Compute the vector from atom a to atom b
+        rvec rab;
+        if (pbc) {
+            pbc_dx(pbc, xprime[b], xprime[a], rab);
+        }
+        else {
+            rvec_sub(xprime[b], xprime[a], rab);
+        }
+
+        // Compute the square of the length of r
+        const auto scalar = iprod(rab, rab);
+
+        // Compute the relative error (approximation using squares).
+        real rel_error = std::abs(0.5 * (sigma2 - scalar) / sigma2);
+
+        // Update the max constraint violation
+        max_rel_error = std::max(max_rel_error, rel_error);
+        avg_rel_error += rel_error;
+    }
+
+    avg_rel_error /= n;
+
+    return std::make_pair(max_rel_error, avg_rel_error);
+}
+
+void Constraints::Impl::print_constr_detailed_durations() {
+    if (constr_detailed_durations.size() == 0) {
+        return;
+    }
+
+    std::cout << "Constraint algorithm execution time (ms) per function and thread.\n";
+
+    for (int thread = 0; thread < constr_detailed_durations.size(); ++thread) {
+        std::cout << "Thread " << thread << " ==>\n";
+        for (auto &duration : constr_detailed_durations[thread]) {
+            std::cout << "\t" << duration.first << ": "
+                    << duration.second.count() << " ms\n";
+        }
+    }
+
+    std::cout << "Normalized execution time per function and thread.\n";
+
+    constexpr int setw_size_index = 20;
+    constexpr int setw_size_value = 10;
+
+    std::cout << std::setw(setw_size_index) << "";
+    for (int thread = 0; thread < constr_detailed_durations.size(); ++thread) {
+        std::cout << std::setw(setw_size_value)
+                << "Thread " + std::to_string(thread);
+    }
+    std::cout << "\n";
+
+    for (const auto &iter : constr_detailed_durations[0]) {
+        const auto &k = iter.first;
+        std::cout << std::setw(setw_size_index) << k;
+
+        double max = 0;
+        for (int thread = 0; thread < constr_detailed_durations.size(); ++thread) {
+            max = std::max(max, constr_detailed_durations[thread][k].count());
+        }
+        for (int thread = 0; thread < constr_detailed_durations.size(); ++thread) {
+            double val = constr_detailed_durations[thread][k].count() / max;
+            std::cout << std::setw(setw_size_value) << std::setprecision(2) << val;
+        }
+        std::cout << "\n";
+    }
+}
+
+void Constraints::Impl::mpi_start_printing() {
+#ifdef GMX_MPI
+    MPI_Comm comm = cr->dd->mpi_comm_all;
+
+    int nranks;
+    MPI_Comm_size(comm, &nranks);
+
+    if (nranks < 2) {
+        return;
+    }
+
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    for (int i = 0; i < rank; ++i) {
+        int temp = i;
+        MPI_Bcast(&temp, 1, MPI_INT, i, comm);
+    }
+
+    printf("--- RANK %d ---\n", rank);
+#endif
+}
+
+void Constraints::Impl::mpi_finish_printing() {
+#ifdef GMX_MPI
+    MPI_Comm comm = cr->dd->mpi_comm_all;
+
+    int nranks;
+    MPI_Comm_size(comm, &nranks);
+
+    if (nranks < 2) {
+        return;
+    }
+
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    for (int i = rank; i < nranks; ++i) {
+        int temp = i;
+        MPI_Bcast(&temp, 1, MPI_INT, i, comm);
+    }
+#endif
+}
+// END ILVES
 //! Clears constraint quantities for atoms in nonlocal region.
 static void clear_constraint_quantity_nonlocal(gmx_domdec_t* dd, ArrayRef<RVec> q)
 {
@@ -474,12 +653,53 @@ bool Constraints::Impl::apply(bool                      bLog,
         }
     }
 
+    // ILVES
+    if (CONSTRAINTS_VERBOSE && step % NSCONSTRAINTS_OUTPUT == 0) {
+        if (MASTER(cr)) {
+            printf("Imposing constraints in time-step: %ld\n", step);
+        }
+    }
+    // END ILVES
+
+    // ILVES
     if (lincsd != nullptr)
     {
-        bOK = constrain_lincs(bLog || bEner, ir, step, lincsd, inverseMasses_, cr, ms, x, xprime,
-                              min_proj, box, pbc_null, hasMassPerturbedAtoms_, lambda, dvdlambda,
-                              invdt, v.unpaddedArrayRef(), computeVirial, constraintsVirial, econq,
-                              nrnb, maxwarn, &warncount_lincs);
+        constr_total_calls += 1;
+
+        if (CONSTRAINTS_VERBOSE && step % NSCONSTRAINTS_OUTPUT == 0 && MASTER(cr)) {
+            printf("Executing LINCS\n");
+        }
+
+        auto start = std::chrono::system_clock::now();
+        int niters = 0;
+        std::tie(bOK, niters) = constrain_lincs(bLog || bEner,
+                                                ir,
+                                                step,
+                                                lincsd,
+                                                inverseMasses_,
+                                                ir.lincs_tol,
+                                                cr,
+                                                ms,
+                                                x,
+                                                xprime,
+                                                min_proj,
+                                                box,
+                                                pbc_null,
+                                                hasMassPerturbedAtoms_,
+                                                lambda,
+                                                dvdlambda,
+                                                invdt,
+                                                v.unpaddedArrayRef(),
+                                                computeVirial,
+                                                constraintsVirial,
+                                                econq,
+                                                nrnb,
+                                                maxwarn,
+                                                &warncount_lincs);
+        auto end = std::chrono::system_clock::now();
+        constr_duration += end - start;
+
+        constr_total_iters += niters;
         if (!bOK && maxwarn < INT_MAX)
         {
             if (log != nullptr)
@@ -490,24 +710,139 @@ bool Constraints::Impl::apply(bool                      bLog,
             bDump = TRUE;
         }
     }
+    // END ILVES
 
+    // ILVES
     if (shaked != nullptr)
     {
-        bOK = constrain_shake(log, shaked.get(), inverseMasses_, *idef, ir, x.unpaddedArrayRef(),
-                              xprime.unpaddedArrayRef(), min_proj, pbc_null, nrnb, lambda,
-                              dvdlambda, invdt, v.unpaddedArrayRef(), computeVirial,
-                              constraintsVirial, maxwarn < INT_MAX, econq);
+        constr_total_calls += 1;
 
-        if (!bOK && maxwarn < INT_MAX)
-        {
-            if (log != nullptr)
-            {
-                fprintf(log, "Constraint error in algorithm %s at step %s\n",
-                        econstr_names[econtSHAKE], gmx_step_str(step, buf));
+        if (CONSTRAINTS_VERBOSE && step % NSCONSTRAINTS_OUTPUT == 0 && MASTER(cr)) {
+            printf("Executing SHAKE\n");
+        }
+
+        auto start = std::chrono::system_clock::now();
+        int niters = 0;
+        std::tie(bOK, niters) = constrain_shake(log,
+                                                shaked.get(),
+                                                inverseMasses_,
+                                                *idef,
+                                                ir,
+                                                x.unpaddedArrayRef(),
+                                                xprime.unpaddedArrayRef(),
+                                                min_proj,
+                                                pbc_null,
+                                                nrnb,
+                                                lambda,
+                                                dvdlambda,
+                                                invdt,
+                                                v.unpaddedArrayRef(),
+                                                computeVirial,
+                                                constraintsVirial,
+                                                maxwarn < INT_MAX,
+                                                econq);
+        auto end = std::chrono::system_clock::now();
+        constr_duration += end - start;
+
+        constr_total_iters += niters;
+
+        if (!bOK && maxwarn < INT_MAX) {
+            if (log != nullptr) {
+                fprintf(log,
+                        "Constraint error in algorithm %s at step %s\n",
+                        econstr_names[econtSHAKE],
+                        gmx_step_str(step, buf));
             }
             bDump = TRUE;
         }
     }
+    // END ILVES
+
+    // ILVES
+    if (ilves != nullptr) {
+        constr_total_calls += 1;
+
+        if (econq != ConstraintVariable::Positions) {
+            gmx_fatal(FARGS,
+                        "Internal error, ILVES called for constraining something else than "
+                        "positions");
+        }
+
+        if (ir.efep != efepNO) {
+            gmx_fatal(FARGS,
+                        "Internal error, ILVES does not support FEP");
+        }
+
+        if (CONSTRAINTS_VERBOSE && step % NSCONSTRAINTS_OUTPUT == 0 && MASTER(cr)) {
+            printf("Executing ILVES or ILVES-FAST - SIMD %s\n",
+                    GMX_SIMD_HAVE_REAL ? "ENABLED" : "DISABLED");
+        }
+
+        auto start = std::chrono::system_clock::now();
+
+        int niters = 0;
+        std::tie(bOK, niters) = ilves->solve(x.unpaddedArrayRef(),
+                                             xprime.unpaddedArrayRef(),
+                                             v.unpaddedArrayRef(),
+                                             ir.ilves_tol,
+                                             scaled_delta_t,
+                                             computeVirial,
+                                             constraintsVirial,
+                                             !v.empty(),
+                                             pbc_null,
+                                             ir.efep != efepNO,
+                                             lambda,
+                                             *dvdlambda,
+                                             box,
+                                             nrnb);
+
+        auto end = std::chrono::system_clock::now();
+        constr_duration += end - start;
+
+        constr_total_iters += niters;
+
+        if (!bOK && maxwarn < INT_MAX) {
+            if (log != nullptr) {
+                fprintf(log,
+                        "Constraint error in algorithm ILVES at step %s\n",
+                        gmx_step_str(step, buf));
+            }
+            bDump = TRUE;
+        }
+    }
+    // END ILVES
+
+    // ILVES
+    if (CONSTRAINTS_VERBOSE && step % NSCONSTRAINTS_OUTPUT == 0) {
+        std::pair<real, real> errors = compute_errors(pbc_null,
+                                                        xprime.unpaddedArrayRef());
+
+        if (cr->dd) {
+            mpi_start_printing();
+        }
+
+        printf("    MAX relative error (approximation) = %E\n", errors.first);
+        printf("    AVG relative error (approximation) = %E\n", errors.second);
+
+        if (computeVirial) {
+            printf("    Virial: [{%4.6f, %4.6f, %4.6f}, "
+                    "{%4.6f, %4.6f, %4.6f}, "
+                    "{%4.6f, %4.6f, %4.6f}]\n",
+                    constraintsVirial[0][0], constraintsVirial[0][1], constraintsVirial[0][2],
+                    constraintsVirial[1][0], constraintsVirial[1][1], constraintsVirial[1][2],
+                    constraintsVirial[2][0], constraintsVirial[2][1], constraintsVirial[2][2]);
+        }
+
+        // Free energy
+        if (ir.efep != efepNO) {
+            printf("    Free Energy = %3.15lf\n", *dvdlambda);
+        }
+
+        if (cr->dd) {
+            mpi_finish_printing();
+        }
+    }
+    // END ILVES
 
     if (nsettle > 0)
     {
@@ -915,6 +1250,23 @@ void Constraints::Impl::setConstraints(gmx_localtop_t* top,
 
     if (ncon_tot > 0)
     {
+        // ILVES
+        auto start = std::chrono::system_clock::now();
+
+        if (ir.eConstrAlg == econtILVES) {
+            ilves = std::make_unique<IlvesAsym>(cr,
+                                                *idef,
+                                                inverseMasses_,
+                                                omp_get_max_threads(),
+                                                constr_detailed_durations);
+        }
+        if (ir.eConstrAlg == econtILVESF) {
+            ilves = std::make_unique<IlvesSym>(cr, 
+                                                *idef,
+                                                inverseMasses_,
+                                                omp_get_max_threads(),
+                                                constr_detailed_durations);
+        }
         /* With DD we might also need to call LINCS on a domain no constraints for
          * communicating coordinates to other nodes that do have constraints.
          */
@@ -930,13 +1282,17 @@ void Constraints::Impl::setConstraints(gmx_localtop_t* top,
                 // F_CONSTR constraints.
                 GMX_RELEASE_ASSERT(idef->il[F_CONSTRNC].empty(),
                                    "Here we should not have no-connect constraints");
-                make_shake_sblock_dd(shaked.get(), idef->il[F_CONSTR]);
+                make_shake_sblock_dd(shaked.get(), idef->il[F_CONSTR], CONSTRAINTS_VERBOSE == 2);
             }
             else
             {
-                make_shake_sblock_serial(shaked.get(), &top->idef, numAtoms_);
+                make_shake_sblock_serial(shaked.get(), &top->idef, numAtoms_, CONSTRAINTS_VERBOSE == 2);
             }
         }
+
+        auto end = std::chrono::system_clock::now();
+        constr_init_duration += end - start;
+        // END ILVES
     }
 
     if (settled)
@@ -1021,6 +1377,30 @@ Constraints::Impl::Impl(const gmx_mtop_t&     mtop_p,
     {
         gmx_fatal(FARGS, "Constraints are not implemented with MTTK pressure control.");
     }
+
+    // ILVES
+    char *CONSTRAINTS_VERBOSE_ev = std::getenv("CONSTRAINTS_VERBOSE");
+    if (CONSTRAINTS_VERBOSE_ev == NULL) {
+        CONSTRAINTS_VERBOSE = 0;
+    }
+    else {
+        int CONSTRAINTS_VERBOSE_int = atoi(CONSTRAINTS_VERBOSE_ev);
+        CONSTRAINTS_VERBOSE = (CONSTRAINTS_VERBOSE_int >= 0 && CONSTRAINTS_VERBOSE_int <= 2)
+                                ? CONSTRAINTS_VERBOSE_int : 0;
+    }
+
+    char *NSCONSTRAINTS_OUTPUT_ev = std::getenv("NSCONSTRAINTS_OUTPUT");
+    if (NSCONSTRAINTS_OUTPUT_ev == NULL) {
+        NSCONSTRAINTS_OUTPUT = 1;
+    }
+    else {
+        int NSCONSTRAINTS_OUTPUT_int = atoi(NSCONSTRAINTS_OUTPUT_ev);
+        NSCONSTRAINTS_OUTPUT = (NSCONSTRAINTS_OUTPUT_int >= 1) ?
+                                NSCONSTRAINTS_OUTPUT_int : 1;
+    }
+
+    constr_total_calls = 0;
+    // END ILVES
 
     nflexcon = 0;
     if (numConstraints > 0)
@@ -1134,6 +1514,22 @@ Constraints::Impl::Impl(const gmx_mtop_t&     mtop_p,
 
 Constraints::Impl::~Impl()
 {
+    if (ncon_tot > 0) {
+        // Print in order
+        if (cr->dd) {
+            mpi_start_printing();
+        }
+        printf("CONSTR ALGORITHM time (s) = %lf\n", constr_duration.count());
+        printf("CONSTR ALGORITHM initialization time (s) = %lf\n", constr_init_duration.count());
+        printf("CONSTR ALGORITHM iterations = %d\n", constr_total_iters);
+        printf("CONSTR ALGORITHM total calls = %d\n", constr_total_calls);
+        printf("CONSTR ALGORITHM average iterations = %lf\n", (double)constr_total_iters / constr_total_calls);
+        print_constr_detailed_durations();
+        if (cr->dd) {
+            mpi_finish_printing();
+        }
+    }
+
     if (bSettleErrorHasOccurred != nullptr)
     {
         sfree(bSettleErrorHasOccurred);

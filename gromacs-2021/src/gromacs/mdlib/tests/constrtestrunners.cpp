@@ -83,7 +83,7 @@ namespace test
 void ShakeConstraintsRunner::applyConstraints(ConstraintsTestData* testData, t_pbc /* pbc */)
 {
     shakedata shaked;
-    make_shake_sblock_serial(&shaked, testData->idef_.get(), testData->numAtoms_);
+    make_shake_sblock_serial(&shaked, testData->idef_.get(), testData->numAtoms_, false);
     bool success = constrain_shake(
             nullptr, &shaked, testData->invmass_.data(), *testData->idef_, testData->ir_, testData->x_,
             testData->xPrime_, testData->xPrime2_, nullptr, &testData->nrnb_, testData->lambda_,

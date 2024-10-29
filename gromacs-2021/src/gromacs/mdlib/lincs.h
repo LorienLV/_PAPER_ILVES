@@ -76,6 +76,8 @@ ArrayRef<real> lincs_rmsdData(Lincs* lincsd);
 /*! \brief Return the RMSD of the constraint. */
 real lincs_rmsd(const Lincs* lincsd);
 
+int lincs_total_iters(Lincs* li);
+
 /*! \brief Initializes and returns the lincs data struct. */
 Lincs* init_lincs(FILE*                            fplog,
                   const gmx_mtop_t&                mtop,
@@ -100,29 +102,30 @@ void set_lincs(const InteractionDefinitions& idef,
 /*! \brief Applies LINCS constraints.
  *
  * \returns true if the constraining succeeded. */
-bool constrain_lincs(bool                            computeRmsd,
-                     const t_inputrec&               ir,
-                     int64_t                         step,
-                     Lincs*                          lincsd,
-                     const real*                     invmass,
-                     const t_commrec*                cr,
-                     const gmx_multisim_t*           ms,
-                     ArrayRefWithPadding<const RVec> x,
-                     ArrayRefWithPadding<RVec>       xprime,
-                     ArrayRef<RVec>                  min_proj,
-                     const matrix                    box,
-                     t_pbc*                          pbc,
-                     bool                            hasMassPerturbed,
-                     real                            lambda,
-                     real*                           dvdlambda,
-                     real                            invdt,
-                     ArrayRef<RVec>                  v,
-                     bool                            bCalcVir,
-                     tensor                          vir_r_m_dr,
-                     ConstraintVariable              econq,
-                     t_nrnb*                         nrnb,
-                     int                             maxwarn,
-                     int*                            warncount);
+std::pair<bool, int> constrain_lincs(bool                            computeRmsd,
+                                     const t_inputrec&               ir,
+                                     int64_t                         step,
+                                     Lincs*                          lincsd,
+                                     const real*                     invmass,
+                                     real                            tol,
+                                     const t_commrec*                cr,
+                                     const gmx_multisim_t*           ms,
+                                     ArrayRefWithPadding<const RVec> x,
+                                     ArrayRefWithPadding<RVec>       xprime,
+                                     ArrayRef<RVec>                  min_proj,
+                                     const matrix                    box,
+                                     t_pbc*                          pbc,
+                                     bool                            hasMassPerturbed,
+                                     real                            lambda,
+                                     real*                           dvdlambda,
+                                     real                            invdt,
+                                     ArrayRef<RVec>                  v,
+                                     bool                            bCalcVir,
+                                     tensor                          vir_r_m_dr,
+                                     ConstraintVariable              econq,
+                                     t_nrnb*                         nrnb,
+                                     int                             maxwarn,
+                                     int*                            warncount);
 
 } // namespace gmx
 

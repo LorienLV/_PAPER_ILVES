@@ -122,7 +122,8 @@ static void resizeLagrangianData(shakedata* shaked, int ncons)
     shaked->scaled_lagrange_multiplier.resize(ncons);
 }
 
-void make_shake_sblock_serial(shakedata* shaked, InteractionDefinitions* idef, const int numAtoms)
+void make_shake_sblock_serial(shakedata* shaked, InteractionDefinitions* idef, 
+                              const int numAtoms, const bool verbose)
 {
     int          i, m, ncons;
     int          bstart, bnr;
@@ -210,7 +211,7 @@ void make_shake_sblock_serial(shakedata* shaked, InteractionDefinitions* idef, c
     resizeLagrangianData(shaked, ncons);
 }
 
-void make_shake_sblock_dd(shakedata* shaked, const InteractionList& ilcon)
+void make_shake_sblock_dd(shakedata* shaked, const InteractionList& ilcon, const bool verbose)
 {
     int ncons, c, cg;
 
@@ -485,6 +486,7 @@ static int vec_shakef(FILE*                     fplog,
         {
             rvec_sub(x[i], x[j], rij[ll]);
         }
+
         const real mm            = 2.0_real * (invmass[i] + invmass[j]);
         half_of_reduced_mass[ll] = 1.0_real / mm;
         if (bFEP)
@@ -652,27 +654,28 @@ static void check_cons(FILE*                     log,
 }
 
 //! Applies SHAKE.
-static bool bshakef(FILE*                         log,
-                    shakedata*                    shaked,
-                    const real                    invmass[],
-                    const InteractionDefinitions& idef,
-                    const t_inputrec&             ir,
-                    ArrayRef<const RVec>          x_s,
-                    ArrayRef<RVec>                prime,
-                    const t_pbc*                  pbc,
-                    t_nrnb*                       nrnb,
-                    real                          lambda,
-                    real*                         dvdlambda,
-                    real                          invdt,
-                    ArrayRef<RVec>                v,
-                    bool                          bCalcVir,
-                    tensor                        vir_r_m_dr,
-                    bool                          bDumpOnError,
-                    ConstraintVariable            econq)
+static std::pair<bool, int> bshakef(FILE*                         log,
+                                    shakedata*                    shaked,
+                                    const real                    invmass[],
+                                    const InteractionDefinitions& idef,
+                                    const t_inputrec&             ir,
+                                    ArrayRef<const RVec>          x_s,
+                                    ArrayRef<RVec>                prime,
+                                    const t_pbc*                  pbc,
+                                    t_nrnb*                       nrnb,
+                                    real                          lambda,
+                                    real*                         dvdlambda,
+                                    real                          invdt,
+                                    ArrayRef<RVec>                v,
+                                    bool                          bCalcVir,
+                                    tensor                        vir_r_m_dr,
+                                    bool                          bDumpOnError,
+                                    ConstraintVariable            econq)
 {
     real dt_2, dvdl;
     int  i, n0, ncon, blen, type, ll;
     int  tnit = 0, trij = 0;
+    int  niters = 0;
 
     ncon = idef.il[F_CONSTR].size() / 3;
 
@@ -702,10 +705,12 @@ static bool bshakef(FILE*                         log,
                     check_cons(log, blen, x_s, prime, v, pbc, idef.iparams, iatoms, invmass, econq);
                 }
             }
-            return FALSE;
+            return {FALSE, 0};
         }
+
         tnit += n0 * blen;
         trij += blen;
+        niters = std::max(n0, niters);
         iatoms += 3 * blen; /* Increment pointer! */
         lam = lam.subArray(blen, lam.ssize() - blen);
         i++;
@@ -755,49 +760,50 @@ static bool bshakef(FILE*                         log,
         inc_nrnb(nrnb, eNR_CONSTR_VIR, trij);
     }
 
-    return TRUE;
+    return {TRUE, niters};
 }
 
-bool constrain_shake(FILE*                         log,
-                     shakedata*                    shaked,
-                     const real                    invmass[],
-                     const InteractionDefinitions& idef,
-                     const t_inputrec&             ir,
-                     ArrayRef<const RVec>          x_s,
-                     ArrayRef<RVec>                xprime,
-                     ArrayRef<RVec>                vprime,
-                     const t_pbc*                  pbc,
-                     t_nrnb*                       nrnb,
-                     real                          lambda,
-                     real*                         dvdlambda,
-                     real                          invdt,
-                     ArrayRef<RVec>                v,
-                     bool                          bCalcVir,
-                     tensor                        vir_r_m_dr,
-                     bool                          bDumpOnError,
-                     ConstraintVariable            econq)
+std::pair<bool, int> constrain_shake(FILE*                         log,
+                                     shakedata*                    shaked,
+                                     const real                    invmass[],
+                                     const InteractionDefinitions& idef,
+                                     const t_inputrec&             ir,
+                                     ArrayRef<const RVec>          x_s,
+                                     ArrayRef<RVec>                xprime,
+                                     ArrayRef<RVec>                vprime,
+                                     const t_pbc*                  pbc,
+                                     t_nrnb*                       nrnb,
+                                     real                          lambda,
+                                     real*                         dvdlambda,
+                                     real                          invdt,
+                                     ArrayRef<RVec>                v,
+                                     bool                          bCalcVir,
+                                     tensor                        vir_r_m_dr,
+                                     bool                          bDumpOnError,
+                                     ConstraintVariable            econq)
 {
     if (shaked->numShakeBlocks() == 0)
     {
-        return true;
+        return {true, 0};
     }
     bool bOK;
+    int niters = 0;
     switch (econq)
     {
         case (ConstraintVariable::Positions):
-            bOK = bshakef(log, shaked, invmass, idef, ir, x_s, xprime, pbc, nrnb, lambda, dvdlambda,
-                          invdt, v, bCalcVir, vir_r_m_dr, bDumpOnError, econq);
+            std::tie(bOK, niters) = bshakef(log, shaked, invmass, idef, ir, x_s, xprime, pbc, nrnb, lambda, dvdlambda,
+                                            invdt, v, bCalcVir, vir_r_m_dr, bDumpOnError, econq);
             break;
         case (ConstraintVariable::Velocities):
-            bOK = bshakef(log, shaked, invmass, idef, ir, x_s, vprime, pbc, nrnb, lambda, dvdlambda,
-                          invdt, {}, bCalcVir, vir_r_m_dr, bDumpOnError, econq);
+            std::tie(bOK, niters) = bshakef(log, shaked, invmass, idef, ir, x_s, vprime, pbc, nrnb, lambda, dvdlambda,
+                                            invdt, {}, bCalcVir, vir_r_m_dr, bDumpOnError, econq);
             break;
         default:
             gmx_fatal(FARGS,
                       "Internal error, SHAKE called for constraining something else than "
                       "coordinates");
     }
-    return bOK;
+    return {bOK, niters};
 }
 
 } // namespace gmx

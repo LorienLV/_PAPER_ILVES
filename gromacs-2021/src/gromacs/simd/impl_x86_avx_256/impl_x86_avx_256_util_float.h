@@ -521,6 +521,25 @@ static inline void gmx_simdcall
     gatherLoadTranspose<align>(base, offset, v0, v1);
 }
 
+template<int align>
+static inline void gmx_simdcall
+                   gatherLoadUBySimdIntTranspose(const float* base, SimdFInt32 simdoffset, SimdFloat* v0)
+{
+
+    alignas(GMX_SIMD_ALIGNMENT) std::int32_t offset[GMX_SIMD_FLOAT_WIDTH];
+    _mm256_store_si256(reinterpret_cast<__m256i*>(offset), simdoffset.simdInternal_);
+
+    float t1 = base[offset[0]];
+    float t2 = base[offset[1]];
+    float t3 = base[offset[2]];
+    float t4 = base[offset[3]];
+    float t5 = base[offset[4]];
+    float t6 = base[offset[5]];
+    float t7 = base[offset[6]];
+    float t8 = base[offset[7]];
+
+    v0->simdInternal_ = _mm256_set_ps(t8, t7, t6, t5, t4, t3, t2, t1);
+}
 
 template<int align>
 static inline void gmx_simdcall
@@ -550,6 +569,50 @@ static inline void gmx_simdcall
     tB                = _mm256_unpacklo_ps(tB, tD);
     v0->simdInternal_ = _mm256_unpacklo_ps(tA, tB);
     v1->simdInternal_ = _mm256_unpackhi_ps(tA, tB);
+}
+
+template<int align>
+static inline void gmx_simdcall
+                   gatherLoadUBySimdIntTranspose(const float* base, SimdFInt32 offset, SimdFloat* v0, SimdFloat* v1, SimdFloat* v2)
+{
+    __m256 t1, t2, t3, t4, t5, t6, t7, t8;
+
+    alignas(GMX_SIMD_ALIGNMENT) std::int32_t ioffset[GMX_SIMD_FINT32_WIDTH];
+    _mm256_store_si256(reinterpret_cast<__m256i*>(ioffset), offset.simdInternal_);
+
+    if (align % 4 == 0)
+    {
+        // we can use aligned loads since base should also be aligned in this case
+        assert(std::size_t(base) % 16 == 0);
+        t1 = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm_load_ps(base + align * ioffset[0])),
+                                  _mm_load_ps(base + align * ioffset[4]), 0x1);
+        t2 = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm_load_ps(base + align * ioffset[1])),
+                                  _mm_load_ps(base + align * ioffset[5]), 0x1);
+        t3 = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm_load_ps(base + align * ioffset[2])),
+                                  _mm_load_ps(base + align * ioffset[6]), 0x1);
+        t4 = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm_load_ps(base + align * ioffset[3])),
+                                  _mm_load_ps(base + align * ioffset[7]), 0x1);
+    }
+    else
+    {
+        // Use unaligned loads
+        t1 = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm_loadu_ps(base + align * ioffset[0])),
+                                  _mm_loadu_ps(base + align * ioffset[4]), 0x1);
+        t2 = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm_loadu_ps(base + align * ioffset[1])),
+                                  _mm_loadu_ps(base + align * ioffset[5]), 0x1);
+        t3 = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm_loadu_ps(base + align * ioffset[2])),
+                                  _mm_loadu_ps(base + align * ioffset[6]), 0x1);
+        t4 = _mm256_insertf128_ps(_mm256_castps128_ps256(_mm_loadu_ps(base + align * ioffset[3])),
+                                  _mm_loadu_ps(base + align * ioffset[7]), 0x1);
+    }
+
+    t5                = _mm256_unpacklo_ps(t1, t2);
+    t6                = _mm256_unpacklo_ps(t3, t4);
+    t7                = _mm256_unpackhi_ps(t1, t2);
+    t8                = _mm256_unpackhi_ps(t3, t4);
+    v0->simdInternal_ = _mm256_shuffle_ps(t5, t6, _MM_SHUFFLE(1, 0, 1, 0));
+    v1->simdInternal_ = _mm256_shuffle_ps(t5, t6, _MM_SHUFFLE(3, 2, 3, 2));
+    v2->simdInternal_ = _mm256_shuffle_ps(t7, t8, _MM_SHUFFLE(1, 0, 1, 0));
 }
 
 static inline float gmx_simdcall reduceIncr4ReturnSum(float* m, SimdFloat v0, SimdFloat v1, SimdFloat v2, SimdFloat v3)

@@ -1353,6 +1353,8 @@ static void do_inputrec(gmx::ISerializer* serializer, t_inputrec* ir, int file_v
     }
 
     serializer->doReal(&ir->shake_tol);
+    serializer->doReal(&ir->lincs_tol);
+    serializer->doReal(&ir->ilves_tol);
 
     serializer->doInt(&ir->efep);
     do_fepvals(serializer, ir->fepvals, file_version);

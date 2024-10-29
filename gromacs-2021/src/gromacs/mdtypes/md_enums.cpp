@@ -88,7 +88,7 @@ const char* eljpme_names[eljpmeNR + 1] = { "Geometric", "Lorentz-Berthelot", nul
 const char* evdw_names[evdwNR + 1] = { "Cut-off", "Switch", "Shift", "User", "Encad-shift (unused)",
                                        "PME",     nullptr };
 
-const char* econstr_names[econtNR + 1] = { "Lincs", "Shake", nullptr };
+const char* econstr_names[econtNR + 1] = { "Lincs", "Shake", "Ilves", "Ilvesf", nullptr };
 
 const char* eintmod_names[eintmodNR + 1] = {
     "Potential-shift-Verlet", "Potential-shift", "None", "Potential-switch",

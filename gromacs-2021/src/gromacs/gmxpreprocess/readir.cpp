@@ -2179,8 +2179,15 @@ void get_ir(const char*     mdparin,
     ir->bShakeSOR = (get_eeenum(&inp, "Shake-SOR", yesno_names, wi) != 0);
     printStringNoNewline(&inp, "Relative tolerance of shake");
     ir->shake_tol = get_ereal(&inp, "shake-tol", 0.0001, wi);
+    printStringNoNewline(&inp, "Relative tolerance of LINCS");
+    ir->lincs_tol = get_ereal(&inp, "lincs-tol", 0.0001, wi);
+    printStringNoNewline(&inp, "Relative tolerance of ILVES");
+    ir->ilves_tol = get_ereal(&inp, "ilves-tol", 0.0001, wi);
     printStringNoNewline(&inp, "Highest order in the expansion of the constraint coupling matrix");
-    ir->nProjOrder = get_eint(&inp, "lincs-order", 4, wi);
+    int lincs_order = get_eint(&inp, "lincs-order", 4, wi);
+    printStringNoNewline(&inp, "Number of neighbors to use in ILVES in MPI executions");
+    int ilves_mpi_neigh = get_eint(&inp, "ilves-mpi-neigh", 4, wi);
+    ir->nProjOrder = (ir->eConstrAlg == econtLINCS) ? lincs_order : ilves_mpi_neigh;
     printStringNoNewline(&inp, "Number of iterations in the final step of LINCS. 1 is fine for");
     printStringNoNewline(&inp, "normal simulations, but use 2 to conserve energy in NVE runs.");
     printStringNoNewline(&inp, "For energy minimization with constraints it should be 4 to 8.");
@@ -4522,6 +4529,11 @@ void double_check(t_inputrec* ir, matrix box, bool bHasNormalConstraints, bool b
 
     if ((ir->eConstrAlg == econtLINCS) && bHasNormalConstraints)
     {
+        if (ir->lincs_tol <= 0.0)
+        {
+            sprintf(warn_buf, "ERROR: lincs-tol must be > 0 instead of %g\n", ir->lincs_tol);
+            warning_error(wi, warn_buf);
+        }
         /* If we have Lincs constraints: */
         if (ir->eI == eiMD && ir->etc == etcNO && ir->eConstrAlg == econtLINCS && ir->nLincsIter == 1)
         {
@@ -4540,6 +4552,14 @@ void double_check(t_inputrec* ir, matrix box, bool bHasNormalConstraints, bool b
         if (ir->epc == epcMTTK)
         {
             warning_error(wi, "MTTK not compatible with lincs -- use shake instead.");
+        }
+    }
+
+    if (bHasNormalConstraints && (ir->eConstrAlg == econtILVES || ir->eConstrAlg == econtILVESF)) {
+        if (ir->ilves_tol <= 0.0)
+        {
+            sprintf(warn_buf, "ERROR: ilves-tol must be > 0 instead of %g\n", ir->ilves_tol);
+            warning_error(wi, warn_buf);
         }
     }
 

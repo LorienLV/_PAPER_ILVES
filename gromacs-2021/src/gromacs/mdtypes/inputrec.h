@@ -442,6 +442,10 @@ struct t_inputrec // NOLINT (clang-analyzer-optin.performance.Padding)
     real tabext;
     //! Tolerance for shake
     real shake_tol;
+    //! Tolerance for lincs
+    real lincs_tol;
+    //! Tolerance for ILVES
+    real ilves_tol;
     //! Free energy calculations
     int efep;
     //! Data for the FEP state
