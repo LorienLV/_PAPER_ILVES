@@ -1,0 +1,9 @@
+#include "gromos54a7.ff/forcefield.itp"
+#include "benzene_ua.itp"
+
+[ system ]
+BENZENE
+
+[ molecules ]
+ENZ  2000
+
