@@ -67,7 +67,7 @@ The `simulations` folder includes the molecular systems evaluated in the ILVES m
 
 - `simulations/setup.sh`: Sets up the environment for running our simulations.
 - `simulations/ffs`: Contains the force fields used in our simulations.
-- `simulations/systems`: Holds a subfolder for each molecular system studied. Each system folder includes a setup script, directories with production simulation files (such as `.mdp` and `.pdb` files), and scripts to generate production files.
+- `simulations/systems`: Contains a subfolder for each molecular system studied. Each system folder includes a setup script, directories with required input files (e.g., `.mdp` and `.pdb` files) for simulation preparation, and automation scripts for generating production-ready files. Additionally, the `files-for-prod` folder provides pre-generated input files for immediate use in production runs.
 - `simulations/prod_run.sh`: Executes production runs with various tolerances, parallel configurations, and constraint solvers using the generated production files.
 
 ### Generating Production Files for a System
@@ -85,6 +85,8 @@ bash 1_ONE_SCRIPT
 ...
 bash N_extract_prod_files.sh #  The files-for-prod folder will contain all required files for a production run.
 ```
+
+You may skip the setup and directly use the pre-generated files in `files-for-prod`.
 
 ### Running a Production Simulation
 
