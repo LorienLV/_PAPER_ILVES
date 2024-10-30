@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [ -z "$ROOT" ]; then
-    echo "ROOT variable is not defined. Exiting."
+if [ -z "$SIMULATIONS_DIR" ]; then
+    echo "SIMULATIONS_DIR variable is not defined. Exiting."
     exit 1
 fi
 
@@ -10,7 +10,7 @@ if [ -z "$NAME" ]; then
     exit 1
 fi
 
-folder="$ROOT/systems/$NAME"
+folder="$SIMULATIONS_DIR/systems/$NAME"
 folder_prep="$folder/1-preparation"
 folder_equil="$folder/3-equilibration"
 

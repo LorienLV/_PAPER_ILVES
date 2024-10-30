@@ -1,7 +1,7 @@
 #!/bin/sh
 
-if [ -z "$ROOT" ]; then
-        echo "ROOT variable is not defined. Exiting."
+if [ -z "$SIMULATIONS_DIR" ]; then
+        echo "SIMULATIONS_DIR variable is not defined. Exiting."
         exit 1
 fi
 
@@ -16,10 +16,9 @@ temp=310
 #replica=r${SLURM_ARRAY_TASK_ID}
 
 ## Heating (NVT step) ####
-folder="$ROOT/systems/$NAME"
-folder_ions="$folder/3-adding-ions"
-folder_minimization="$folder/4-solvated-minimization"
-folder_heating="$folder/5-heating"
+folder="$SIMULATIONS_DIR/systems/$NAME"
+folder_prep="$folder/1-preparation"
+folder_heating="$folder/2-heating"
 
 mkdir -p "$folder_heating"
 pushd "$folder_heating"
@@ -42,14 +41,12 @@ echo "Initial time: " >>RUNNING_INFORMATION.info
 date >>RUNNING_INFORMATION.info
 
 # Loop for increasing the the system's T
-srun $GMX_MPI_MOD grompp -f "$mdp" -po md_heat-0-out.mdp \
-        -c "$folder_minimization/$NAME-EM-neut.gro" \
-        -r "$folder_minimization/$NAME-EM-neut.gro" \
-        -p "$folder_ions/main.top" \
-        -o heating-0.tpr -maxwarn 10
+$GMX_MPI_MOD grompp -f "$mdp" -po md_heat-0-out.mdp -c "$folder_prep/$NAME-min.gro" \
+                    -r "$folder_prep/$NAME-min.gro" -p "$folder_prep/$NAME.top" \
+                    -o heating-0.tpr -maxwarn 10
 
-srun $GMX_MPI_MOD mdrun -s heating-0.tpr -c heating.gro -e heating.edr -x heating.xtc \
-        -g heating.log -nice 19
+$GMX_MPI_MOD mdrun -s heating-0.tpr -c heating.gro -e heating.edr -x heating.xtc \
+                   -g heating.log -nice 19
 
 for i in {1..6}; do
         new_t=$(($init_t + $i * 50))
@@ -62,11 +59,11 @@ for i in {1..6}; do
         sed -i "s/^nsteps.*/nsteps = $new_ext/" "$mdp"
         sed -i "s/^gen_seed.*/gen_seed = $seed/" "$mdp"
 
-        srun $GMX_MPI_MOD grompp -f "$mdp" -po md_heat-$i-out.mdp -c heating.gro -r heating.gro \
-                -p "$folder_ions/main.top" -o heating-$i.tpr -maxwarn 10
+        $GMX_MPI_MOD grompp -f "$mdp" -po md_heat-$i-out.mdp -c heating.gro -r heating.gro \
+                            -p "$folder_prep/$NAME.top" -o heating-$i.tpr -maxwarn 10
 
-        srun $GMX_MPI_MOD mdrun -s heating-$i.tpr -c heating.gro -cpi state.cpt -e heating.edr \
-                -x heating.xtc -g heating.log -nice 19
+        $GMX_MPI_MOD mdrun -s heating-$i.tpr -c heating.gro -cpi state.cpt -e heating.edr \
+                           -x heating.xtc -g heating.log -nice 19
 done
 
 echo "Final time: " >>RUNNING_INFORMATION.info

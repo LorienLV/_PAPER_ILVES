@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [ -z "$ROOT" ]; then
-    echo "ROOT variable is not defined. Exiting."
+if [ -z "$SIMULATIONS_DIR" ]; then
+    echo "SIMULATIONS_DIR variable is not defined. Exiting."
     exit 1
 fi
 
@@ -14,7 +14,7 @@ temp=298
 
 ################## MAIN BODY #######################
 
-folder="$ROOT/systems/$NAME"
+folder="$SIMULATIONS_DIR/systems/$NAME"
 folder_ions="$folder/3-adding-ions"
 folder_heating="$folder/5-heating"
 folder_equil="$folder/6-equilibration"
@@ -45,30 +45,30 @@ date >> RUNNING_INFORMATION.info
 # Start the initial steps for equilibration of the system
 
 ## First equilibration step
-$gmx grompp -f "$mdp1" -po md_equil1_out.mdp -c "$folder_heating/heating.gro" \
+$GMX_MPI_MOD grompp -f "$mdp1" -po md_equil1_out.mdp -c "$folder_heating/heating.gro" \
             -r "$folder_heating/heating.gro" -p "$folder_ions/topol.top" \
             -o equil1.tpr -maxwarn 10
 
-$gmx mdrun -s equil1.tpr -x equil1.xtc -c equil1.gro -e equil1.edr -nice 19 -dlb yes
+$GMX_MPI_MOD mdrun -s equil1.tpr -x equil1.xtc -c equil1.gro -e equil1.edr -nice 19 -dlb yes
 
 ## Second equilibration step
-$gmx grompp -f "$mdp2" -po md_equil2_out.mdp -c equil1.gro -r equil1.gro \
+$GMX_MPI_MOD grompp -f "$mdp2" -po md_equil2_out.mdp -c equil1.gro -r equil1.gro \
             -t state.cpt -p "$folder_ions/topol.top" -o equil2.tpr -maxwarn 10
 
-$gmx mdrun -s equil2.tpr -x equil2.xtc -c equil2.gro -e equil2.edr -nice 19 -dlb yes
+$GMX_MPI_MOD mdrun -s equil2.tpr -x equil2.xtc -c equil2.gro -e equil2.edr -nice 19 -dlb yes
 
 ## Third equilibration step
-$gmx grompp -f "$mdp3" -po md_equil3_out.mdp -c equil2.gro -r equil2.gro \
+$GMX_MPI_MOD grompp -f "$mdp3" -po md_equil3_out.mdp -c equil2.gro -r equil2.gro \
             -t state.cpt -p "$folder_ions/topol.top" -o equil3.tpr -maxwarn 10
 
-$gmx mdrun -s equil3.tpr -x equil3.xtc -c equil3.gro -e equil3.edr -nice 19 -dlb yes
+$GMX_MPI_MOD mdrun -s equil3.tpr -x equil3.xtc -c equil3.gro -e equil3.edr -nice 19 -dlb yes
 
-$gmx trjconv -f equil3.xtc -s equil3.tpr -o equil3_preprocessed.xtc -pbc mol -ur compact -center <<EOF
+$GMX_MPI_MOD trjconv -f equil3.xtc -s equil3.tpr -o equil3_preprocessed.xtc -pbc mol -ur compact -center <<EOF
 1
 0
 EOF
 
-$gmx trjconv -f equil3_preprocessed.xtc -s equil3.tpr -o equil3_processed.xtc -fit rot+trans <<EOF
+$GMX_MPI_MOD trjconv -f equil3_preprocessed.xtc -s equil3.tpr -o equil3_processed.xtc -fit rot+trans <<EOF
 1
 0
 EOF

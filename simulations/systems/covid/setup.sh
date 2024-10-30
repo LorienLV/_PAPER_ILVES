@@ -2,6 +2,6 @@
 
 export NAME="covid"
 
-export FF="$ROOT/ffs/charmm36-jul2022.ff"
-export PDB="$ROOT/systems/$NAME/pdb/covid_clean.pdb"
+export FF="$SIMULATIONS_DIR/ffs/charmm36-jul2022.ff"
+export PDB="$SIMULATIONS_DIR/systems/$NAME/pdb/covid_clean.pdb"
 
