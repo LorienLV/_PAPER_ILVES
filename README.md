@@ -1,6 +1,6 @@
 # ILVES
 
-In molecular dynamics, the time step can be incremented through the imposition of constraints on internal degrees of freedom, which raises the total simulated time for equal computational effort. This enables researchers to simulate a wider collection of phenomena of interest, which frequently take place at large time scales. Customarily, the bond length between pair of atoms is constrained, altough other constrains such as angles and dihedral angles can be imposed to further increase the time step.
+In molecular dynamics, the time step can be incremented through the imposition of constraints on internal degrees of freedom, which raises the total simulated time for equal computational effort. This enables researchers to simulate a wider collection of phenomena of interest, which frequently take place at large time scales. Customarily, the bond length between pair of atoms is constrained, although other constrains such as angles and dihedral angles can be imposed to further increase the time step.
 
 The most popular constraint solvers are SHAKE and LINCS. SHAKE converges locally and linearly and operates serially, limiting parallel performance. LINCS, along with its parallel variant P-LINCS, converges linearly at best and, in certain cases, fails to converge. Additionally, LINCS is suited only for constraining bond lengths. As a result, achieving machine-precision solutions with these methods is time-consuming, and constraining angles or dihedral angles efficiently remains a challenge.
 
