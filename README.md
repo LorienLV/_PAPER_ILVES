@@ -1,14 +1,14 @@
 # ILVES
 
-In molecular dynamics, the time step can be incremented through the imposition of constraints on internal degrees of freedom, which raises the total simulated time for equal computational effort. This enables researchers to simulate a wider collection of phenomena of interest, which frequently take place at large time scales. Customarily, the bond length between pair of atoms is constrained, although other constrains such as angles and dihedral angles can be imposed to further increase the time step.
+In molecular dynamics, the time step can be incremented through the imposition of constraints on internal degrees of freedom, which raises the total simulated time for equal computational effort. This enables researchers to simulate a wider collection of phenomena of interest, which frequently take place at large time scales. Customarily, bond lengths between pairs of atoms are constrained, although other constraints such as bond angles and dihedral angles can be imposed in order to further increase the time step.
 
-The most popular constraint solvers are SHAKE and LINCS. SHAKE converges locally and linearly and operates serially, limiting parallel performance. LINCS, along with its parallel variant P-LINCS, converges linearly at best and, in certain cases, fails to converge. Additionally, LINCS is suited only for constraining bond lengths. As a result, achieving machine-precision solutions with these methods is time-consuming, and constraining angles or dihedral angles efficiently remains a challenge.
+The most popular constraint solvers are SHAKE and LINCS. SHAKE converges locally and linearly and operates serially, limiting parallel performance. LINCS, along with its parallel variant P-LINCS, converges linearly at best and, in certain cases, fails to converge. Additionally, LINCS is suited only for constraining bond lengths (it fails for coupled constraints on angles). As a result, achieving machine precision solutions with these methods is time-consuming and constraining angles or dihedral angles efficiently remains a challenge.
 
-ILVES is a new constraint solver that solves the same system of differential-algebraic equations as SHAKE using Newton's method. ILVES converges quadratically and can solve nonlinear constraint equations in parallel, providing faster and more accurate solutions than current methods. Notably, ILVES is the first constraint solver to enable applying angle constraints in parallel.
+ILVES is a new algorithm to impose constraints on molecules that solves the same system of differential algebraic equations as SHAKE using Newton's method. ILVES converges quadratically or nearly quadratically and can solve nonlinear constraint equations in parallel, providing faster and more accurate solutions than current (2024) state-of-the-art methods. Notably, ILVES is the first constraint solver to enable applying anglular constraints in parallel.
 
 This repository contains two versions of the ILVES algorithm, integrated into the GROMACS (v2021.0) molecular dynamics package:
 - **ILVES**: The base version, solving the same equations as SHAKE.
-- **ILVES-FAST**: A Quasi-Newton variation that achieves up to twice the performance of ILVES by solving a modified set of equations.
+- **ILVES-FAST**: A Quasi-Newton variation that achieves up to twice the performance of ILVES by solving a modified set of equations (reaching the same solution than SHAKE's equations).
 
 Additionally, this repository includes the molecular systems evaluated in the paper "Accurate and Efficient Constrained Molecular Dynamics through Direct Solvers: The ILVES Algorithm."
 
