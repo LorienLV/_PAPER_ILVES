@@ -63,7 +63,7 @@ lincs-iter=100    ; Maximum allowed iterations in the LINCS correction phase (fi
 
 ## Reproduce our Results
 
-The `simulations` folder includes the molecular systems evaluated in the ILVES manuscript. Additionally, it provides scripts to generate necessary files for each system's production run, along with a script to perform production runs with different tolerances, parallel configurations, and constraint solvers.
+The `simulations` folder includes the molecular systems evaluated in the ILVES manuscript (2025). Additionally, it provides scripts to generate necessary files for each system's production run, along with a script to perform production runs with different tolerances, parallel configurations, and constraint solvers.
 
 - `simulations/setup.sh`: Sets up the environment for running our simulations.
 - `simulations/ffs`: Contains the force fields used in our simulations.
