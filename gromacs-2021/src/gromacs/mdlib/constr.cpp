@@ -1400,6 +1400,7 @@ Constraints::Impl::Impl(const gmx_mtop_t&     mtop_p,
     }
 
     constr_total_calls = 0;
+    constr_total_iters = 0;
     // END ILVES
 
     nflexcon = 0;
