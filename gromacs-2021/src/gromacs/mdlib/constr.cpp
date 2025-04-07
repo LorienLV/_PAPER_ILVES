@@ -235,11 +235,11 @@ public:
 
     std::unique_ptr<Ilves> ilves;
 
-    int constr_total_calls;
-    int constr_total_iters;
-    std::chrono::duration<double> constr_duration;
-    std::chrono::duration<double> constr_init_duration;
-    std::vector<std::map<std::string, 
+    int constr_total_calls = 0;
+    int constr_total_iters = 0;
+    std::chrono::duration<double> constr_duration = std::chrono::duration<double>(0.0);
+    std::chrono::duration<double> constr_init_duration = std::chrono::duration<double>(0.0);
+    std::vector<std::map<std::string,
                 std::chrono::duration<double, std::milli>>> constr_detailed_durations;
 
     // END ILVES
@@ -1399,8 +1399,6 @@ Constraints::Impl::Impl(const gmx_mtop_t&     mtop_p,
                                 NSCONSTRAINTS_OUTPUT_int : 1;
     }
 
-    constr_total_calls = 0;
-    constr_total_iters = 0;
     // END ILVES
 
     nflexcon = 0;
