@@ -101,4 +101,21 @@ bash prod_run.sh
 
 ## Cite Us
 
-TODO
+> **Lorién López-Villellas, Carl Christian Kjelgaard Mikkelsen, Juan José Galano-Frutos, Santiago Marco-Sola, Jesús Alastruey-Benedé, Pablo Ibáñez, Miquel Moretó, Maria Cristina De Rosa, and Pablo García-Risueño.** *ILVES: Accurate and Efficient Bond Length and Angle Constraints in Molecular Dynamics*, Journal of Chemical Theory and Computation, 2025.
+
+```
+@article{LpezVillellas2025,
+  title = {ILVES: Accurate and Efficient Bond Length and Angle Constraints in Molecular Dynamics},
+  volume = {21},
+  ISSN = {1549-9626},
+  url = {http://dx.doi.org/10.1021/acs.jctc.5c01376},
+  DOI = {10.1021/acs.jctc.5c01376},
+  number = {18},
+  journal = {Journal of Chemical Theory and Computation},
+  publisher = {American Chemical Society (ACS)},
+  author = {López-Villellas,  Lorién and Mikkelsen,  Carl Christian Kjelgaard and Galano-Frutos,  Juan José and Marco-Sola,  Santiago and Alastruey-Benedé,  Jesús and Ibáñez,  Pablo and Echenique,  Pablo and Moretó,  Miquel and De Rosa,  Maria Cristina and García-Risueño,  Pablo},
+  year = {2025},
+  month = sep,
+  pages = {8711–8719}
+}
+```
