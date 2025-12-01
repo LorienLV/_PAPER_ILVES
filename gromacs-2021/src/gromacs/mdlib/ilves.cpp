@@ -1,7 +1,5 @@
 #include "ilves.h"
 
-#include <mpi.h>
-
 #include <functional>
 
 #include "gromacs/domdec/domdec.h"
