@@ -284,35 +284,35 @@ for tol in ${tols[@]}; do
         # PLINCS
         #
         if true; then
-            run_solver "$GMX" "P-LINCS-I2O4" "$lincs_tpr" "$config"
+            run_solver "$GMX" "P-LINCS-I2O4" "$plincs_tpr" "$config"
         fi
 
         #
         # MPLINCS-O4
         #
         if true; then
-            run_solver "$GMX_MPI_MOD" "P-LINCS-O4" "$lincs_o4_tpr" "$config"
+            run_solver "$GMX_MPI_MOD" "P-LINCS-O4" "$mplincs_o4_tpr" "$config"
         fi
 
         #
         # MPLINCS-O8
         #
         if true; then
-            run_solver "$GMX_MPI_MOD" "P-LINCS-O8" "$lincs_o8_tpr" "$config"
+            run_solver "$GMX_MPI_MOD" "P-LINCS-O8" "$mplincs_o8_tpr" "$config"
         fi
 
         #
         # ILVES
         #
         if true; then
-            run_solver "$GMX_MPI_MOD" "ILVES-ASYM" "$ilves_asym_tpr" "$config"
+            run_solver "$GMX_MPI_MOD" "ILVES-ASYM" "$ilves_tpr" "$config"
         fi
 
         #
         # ILVESF
         #
         if true; then
-            run_solver "$GMX_MPI_MOD" "ILVES-SYM" "$ilves_sym_tpr" "$config"
+            run_solver "$GMX_MPI_MOD" "ILVES-SYM" "$ilvesf_tpr" "$config"
         fi
 
         popd &>/dev/null # run folder
